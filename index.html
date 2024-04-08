@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="shortcut icon" href="#" />
+    <title>MetaMask Connection Example</title>
+    <script
+      src="https://cdn.ethers.io/lib/ethers-5.7.umd.min.js"
+      type="application/javascript"
+    ></script>
+  </head>
+  <body>
+    <button id="connectButton">Connect MetaMask</button>
+    <input
+      type="text"
+      id="approveAmount"
+      name="approveAmount"
+      placeholder="Enter amount"
+    />
+    <button id="approveButton">Approve</button>
+    <div id="approvedTokens">Approved USDT Tokens: 0</div>
+    <!-- <button id="mintButton" style="display: block">Mint</button> -->
+    <button id="mintButton" style="display: none;">Mint</button>
+
+    <script>
+      let provider = new ethers.providers.Web3Provider(window.ethereum);
+      let signer = provider.getSigner();
+     let connectedAddress=null;
+
+      const contractABIUSDT = [
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "owner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "spender",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "value",
+              type: "uint256",
+            },
+          ],
+          name: "Approval",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "_user",
+              type: "address",
+            },
+          ],
+          name: "BlockPlaced",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "_user",
+              type: "address",
+            },
+          ],
+          name: "BlockReleased",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "_blockedUser",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "_balance",
+              type: "uint256",
+            },
+          ],
+          name: "DestroyedBlockedFunds",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "_destination",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "_amount",
+              type: "uint256",
+            },
+          ],
+          name: "Mint",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "_contract",
+              type: "address",
+            },
+          ],
+          name: "NewPrivilegedContract",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "previousOwner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "newOwner",
+              type: "address",
+            },
+          ],
+          name: "OwnershipTransferred",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "_amount",
+              type: "uint256",
+            },
+          ],
+          name: "Redeem",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "_contract",
+              type: "address",
+            },
+          ],
+          name: "RemovedPrivilegedContract",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "from",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "to",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "value",
+              type: "uint256",
+            },
+          ],
+          name: "Transfer",
+          type: "event",
+        },
+        {
+          inputs: [],
+          name: "DOMAIN_SEPARATOR",
+          outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_trustedDeFiContract",
+              type: "address",
+            },
+          ],
+          name: "addPrivilegedContract",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "_user", type: "address" }],
+          name: "addToBlockedList",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_owner", type: "address" },
+            { internalType: "address", name: "_spender", type: "address" },
+          ],
+          name: "allowance",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "spender", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "approve",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+          ],
+          name: "balanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "bridgeBurn",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "account", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "bridgeMint",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "decimals",
+          outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "spender", type: "address" },
+            {
+              internalType: "uint256",
+              name: "subtractedValue",
+              type: "uint256",
+            },
+          ],
+          name: "decreaseAllowance",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_blockedUser",
+              type: "address",
+            },
+          ],
+          name: "destroyBlockedFunds",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "spender", type: "address" },
+            { internalType: "uint256", name: "addedValue", type: "uint256" },
+          ],
+          name: "increaseAllowance",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "string", name: "_name", type: "string" },
+            { internalType: "string", name: "_symbol", type: "string" },
+            { internalType: "uint8", name: "_decimals", type: "uint8" },
+          ],
+          name: "initialize",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "string", name: "_name", type: "string" },
+            { internalType: "string", name: "_symbol", type: "string" },
+            { internalType: "uint8", name: "_decimals", type: "uint8" },
+            { internalType: "address", name: "_l2Gateway", type: "address" },
+            {
+              internalType: "address",
+              name: "_l1Counterpart",
+              type: "address",
+            },
+          ],
+          name: "initialize",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "", type: "address" }],
+          name: "isBlocked",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "", type: "address" }],
+          name: "isTrusted",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "l1Address",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "l2Gateway",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_destination",
+              type: "address",
+            },
+            { internalType: "uint256", name: "_amount", type: "uint256" },
+          ],
+          name: "mint",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address[]",
+              name: "_recipients",
+              type: "address[]",
+            },
+            { internalType: "uint256[]", name: "_values", type: "uint256[]" },
+          ],
+          name: "multiTransfer",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "name",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "owner", type: "address" }],
+          name: "nonces",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "owner",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "owner", type: "address" },
+            { internalType: "address", name: "spender", type: "address" },
+            { internalType: "uint256", name: "value", type: "uint256" },
+            { internalType: "uint256", name: "deadline", type: "uint256" },
+            { internalType: "uint8", name: "v", type: "uint8" },
+            { internalType: "bytes32", name: "r", type: "bytes32" },
+            { internalType: "bytes32", name: "s", type: "bytes32" },
+          ],
+          name: "permit",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "_amount", type: "uint256" },
+          ],
+          name: "redeem",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "_user", type: "address" }],
+          name: "removeFromBlockedList",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "address",
+              name: "_trustedDeFiContract",
+              type: "address",
+            },
+          ],
+          name: "removePrivilegedContract",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "renounceOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "symbol",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "totalSupply",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_recipient", type: "address" },
+            { internalType: "uint256", name: "_amount", type: "uint256" },
+          ],
+          name: "transfer",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_sender", type: "address" },
+            { internalType: "address", name: "_recipient", type: "address" },
+            { internalType: "uint256", name: "_amount", type: "uint256" },
+          ],
+          name: "transferFrom",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "newOwner", type: "address" },
+          ],
+          name: "transferOwnership",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+      ];
+
+      const contractABIUSSD = [
+        {
+          inputs: [
+            { internalType: "string", name: "_name", type: "string" },
+            { internalType: "string", name: "_symbol", type: "string" },
+            { internalType: "uint8", name: "_decimals", type: "uint8" },
+          ],
+          stateMutability: "nonpayable",
+          type: "constructor",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "owner",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "spender",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+          ],
+          name: "Approval",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "from",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "to",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "address",
+              name: "token",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amountToken",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amountUSSD",
+              type: "uint256",
+            },
+          ],
+          name: "Mint",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "from",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "to",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amountUSSD",
+              type: "uint256",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amountValuation",
+              type: "uint256",
+            },
+          ],
+          name: "Redeem",
+          type: "event",
+        },
+        {
+          anonymous: false,
+          inputs: [
+            {
+              indexed: true,
+              internalType: "address",
+              name: "from",
+              type: "address",
+            },
+            {
+              indexed: true,
+              internalType: "address",
+              name: "to",
+              type: "address",
+            },
+            {
+              indexed: false,
+              internalType: "uint256",
+              name: "amount",
+              type: "uint256",
+            },
+          ],
+          name: "Transfer",
+          type: "event",
+        },
+        {
+          inputs: [],
+          name: "DOMAIN_SEPARATOR",
+          outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "STABLE",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "STABLEDAI",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "WBGL",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "WBTC",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "WETH",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "", type: "address" },
+            { internalType: "address", name: "", type: "address" },
+          ],
+          name: "allowance",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "spender", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "approve",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "", type: "address" }],
+          name: "balanceOf",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_token", type: "address" },
+            { internalType: "uint256", name: "_amount", type: "uint256" },
+          ],
+          name: "calculateMint",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_token", type: "address" },
+            { internalType: "uint256", name: "_valuation", type: "uint256" },
+          ],
+          name: "calculateRedeem",
+          outputs: [
+            { internalType: "uint256", name: "amount", type: "uint256" },
+            { internalType: "uint256", name: "valuation", type: "uint256" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_owner", type: "address" },
+          ],
+          name: "changeOwner",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "collateralFactor",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_insurance", type: "address" },
+          ],
+          name: "connectInsurance",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_staking", type: "address" },
+          ],
+          name: "connectStaking",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "decimals",
+          outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "insuranceContract",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "token", type: "address" },
+            { internalType: "uint256", name: "tokenAmount", type: "uint256" },
+            { internalType: "address", name: "to", type: "address" },
+          ],
+          name: "mintForToken",
+          outputs: [
+            {
+              internalType: "uint256",
+              name: "stableCoinAmount",
+              type: "uint256",
+            },
+          ],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            {
+              internalType: "uint256",
+              name: "stableCoinAmount",
+              type: "uint256",
+            },
+            { internalType: "address", name: "to", type: "address" },
+          ],
+          name: "mintRewards",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "name",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [{ internalType: "address", name: "", type: "address" }],
+          name: "nonces",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "owner", type: "address" },
+            { internalType: "address", name: "spender", type: "address" },
+            { internalType: "uint256", name: "value", type: "uint256" },
+            { internalType: "uint256", name: "deadline", type: "uint256" },
+            { internalType: "uint8", name: "v", type: "uint8" },
+            { internalType: "bytes32", name: "r", type: "bytes32" },
+            { internalType: "bytes32", name: "s", type: "bytes32" },
+          ],
+          name: "permit",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "prevSupplyAndCF",
+          outputs: [
+            { internalType: "uint256", name: "", type: "uint256" },
+            { internalType: "uint256", name: "", type: "uint256" },
+          ],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "uint256", name: "_amount", type: "uint256" },
+            { internalType: "address", name: "to", type: "address" },
+          ],
+          name: "redeem",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "_stableOracle", type: "address" },
+            { internalType: "address", name: "_DAIOracle", type: "address" },
+            { internalType: "address", name: "_WBGLOracle", type: "address" },
+            { internalType: "address", name: "_WBTCOracle", type: "address" },
+            { internalType: "address", name: "_WETHOracle", type: "address" },
+          ],
+          name: "setOracles",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "stakingContract",
+          outputs: [{ internalType: "address", name: "", type: "address" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "switchToDAI",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "switchToWETH",
+          outputs: [],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "switchedToDAI",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "switchedToWETH",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "symbol",
+          outputs: [{ internalType: "string", name: "", type: "string" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [],
+          name: "totalSupply",
+          outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+          stateMutability: "view",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "to", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "transfer",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+        {
+          inputs: [
+            { internalType: "address", name: "from", type: "address" },
+            { internalType: "address", name: "to", type: "address" },
+            { internalType: "uint256", name: "amount", type: "uint256" },
+          ],
+          name: "transferFrom",
+          outputs: [{ internalType: "bool", name: "", type: "bool" }],
+          stateMutability: "nonpayable",
+          type: "function",
+        },
+      ];
+
+
+      const contractAddressUSDT = "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9";
+      const contractAddressUSSD = "0x33C88D4caC6aC34F77020915a2a88cd0417dC069";
+
+      const myContractUSDT = new ethers.Contract(
+        contractAddressUSDT,
+        contractABIUSDT,
+        signer
+      );
+
+      const myContractUSSD = new ethers.Contract(
+        contractAddressUSSD,
+        contractABIUSSD,
+        signer
+      );
+
+
+      console.log(myContractUSSD, "myContractUSSD");
+      // Button to trigger MetaMask connection
+      const connectButton = document.getElementById("connectButton");
+
+      // button to trigger  aprroval
+      const approveButton = document.getElementById("approveButton");
+
+      connectButton.addEventListener("click", async function () {
+        // Note the async keyword here
+        // Check if MetaMask is installed
+        if (typeof window.ethereum !== "undefined") {
+          try {
+            // Request account access
+          const accounts = await ethereum.request({
+              method: "eth_requestAccounts",
+            }); // Using await to wait for promise resolution
+
+            if (accounts.length > 0) {
+              const account = accounts[0];
+              connectedAddress=account;
+
+              const shortenedAccount =
+                account.substring(0, 6) +
+                "..." +
+                account.substring(account.length - 4);
+              connectButton.textContent = shortenedAccount; // Update button text
+              connectButton.style.backgroundColor = "green"; // Change button color to green
+              connectButton.style.color = "white"; // Optional: change text color for better readability
+
+              // provider = new ethers.providers.Web3Provider(
+              //   window.ethereum
+              // );
+              //  signer = provider.getSigner();
+
+              // Check if the current network is Arbitrum
+              const currentChainId = await ethereum.request({
+                method: "eth_chainId",
+              });
+              const arbitrumChainId = "0xa4b1"; // Chain ID for Arbitrum One
+
+              if (currentChainId !== arbitrumChainId) {
+                try {
+                  await ethereum.request({
+                    method: "wallet_switchEthereumChain",
+                    params: [{ chainId: arbitrumChainId }], // Request to switch to Arbitrum
+                  });
+                } catch (switchError) {
+                  // This error code indicates that the chain has not been added to MetaMask
+                  // if it's 4902, you can prompt the user to add it
+                  if (switchError.code === 4902) {
+                    console.error(
+                      "Arbitrum network is not available in MetaMask, please add it."
+                    );
+                    // Here you can add a function to prompt the user to add Arbitrum to their MetaMask
+                    // addArbitrumNetwork();
+                  } else {
+                    console.error(
+                      "Unable to switch to the Arbitrum network:",
+                      switchError
+                    );
+                  }
+                }
+              }
+            }
+            checkUSDTApproval();
+          } catch (error) {
+            console.error("Error connecting to MetaMask:", error);
+          }
+        } else {
+          console.log("MetaMask is not installed!");
+        }
+      });
+
+      // Contract instance of USDT contract to check the approval
+
+      async function checkUSDTApproval() {
+        try {
+          const result = await myContractUSDT.allowance(
+            connectedAddress,
+            contractAddressUSSD
+          ); // Using await to wait for the call to finish
+          const approvedUsdtToken = ethers.utils.formatUnits(result, 6);
+          // Update the web page element with the approved token amount
+          document.getElementById(
+            "approvedTokens"
+          ).innerText = `Approved USDT Tokens: ${approvedUsdtToken}`;
+          console.log("Read function result:", approvedUsdtToken);
+        } catch (error) {
+          console.error("Error calling read function:", error);
+        }
+      }
+
+      // Global variable to store the approved amount
+let approvedAmount = ethers.utils.parseUnits("0", 6); // Initialize with 0
+
+      //  Approval function
+      approveButton.addEventListener("click", async function () {
+        const spenderAddress = contractAddressUSSD; // Replace with the spender's address
+        // const spenderAddress = "0xeE3093850c570C4948C5F2C32835A4A5F3fD5331"; // Replace with the spender's address
+
+        const approveAmountInput = document.getElementById("approveAmount");
+        const amountToApprove = ethers.utils.parseUnits(
+          approveAmountInput.value || "0",
+          6
+        ); // Use the input value or default to "0" if empty
+        if (amountToApprove.isZero()) {
+          console.error("Amount to approve must be greater than 0");
+          return;
+        }
+
+        try {
+          const approveTx = await myContractUSDT.approve(
+            spenderAddress,
+            amountToApprove
+          );
+         
+          console.log("Approve transaction:", approveTx);
+          const receipt = await approveTx.wait();
+          console.log("Transaction receipt:", receipt);
+          if (receipt.status) {
+
+             // Store the approved amount
+             approvedAmount = amountToApprove;
+
+            // Make the mint button visible
+            document.getElementById("mintButton").style.display = "block"; // Or "inline-block"
+
+            console.log("Approval successful");
+          } else {
+            console.error("Approval failed");
+          }
+        } catch (error) {
+          console.error("Error during approval:", error);
+        }
+      });
+
+      // mint function to call ussd
+
+      document
+        .getElementById("mintButton")
+        .addEventListener("click", async function () {
+
+          // const amount = ethers.utils.parseUnits(approvedAmount, 18);
+          const tokenAddress = contractAddressUSDT; // The token address
+          const to =connectedAddress ; // Who is receiving the minted tokens, probably the user's address
+          console.log(connectedAddress,"connectedAddress")
+          try {
+            // Assuming you have a mint function available similar to this
+            const mintTx = await myContractUSSD.mintForToken(tokenAddress,approvedAmount, to, {
+              gasLimit: 3000000,
+            });
+            // const mintTx = await myContractUSSD.transfer(to, amount, {
+            //   gasLimit: 3000000,
+            // });
+
+            console.log("Mint transaction:", mintTx);
+            const receipt = await mintTx.wait();
+            if (receipt.status) {
+              console.log("Mint successful");
+              // Optionally, hide the mint button again or indicate success to the user
+            } else {
+              console.error("Mint failed");
+            }
+          } catch (error) {
+            console.error("Error during minting:", error);
+          }
+        });
+    </script>
+  </body>
+</html>
